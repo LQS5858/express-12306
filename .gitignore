@@ -1,0 +1,10 @@
+npm-debug.log*
+/dist/
+yarn-debug.log*
+yarn-error.log*
+yarn.lock
+package-lock.json
+.idea
+.vscode
+log
+node_modules
