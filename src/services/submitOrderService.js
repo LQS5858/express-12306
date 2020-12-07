@@ -5,6 +5,8 @@ import _ from 'lodash'
 import moment from 'moment'
 import schedule from 'node-schedule'
 import station from "../config/station";
+const nodemailer = require('nodemailer')
+import { email } from '../config'
 
 
 export default class submitOrderService extends baseService {
@@ -12,22 +14,36 @@ export default class submitOrderService extends baseService {
         super()
         this.j = null
         this.id = null
+        this.mailer = nodemailer.createTransport({
+            host: 'smtp.163.com', // 邮箱的服务器地址 如果需要换其他类型的邮箱 需要更改对应的服务器地址
+            posrt: 465, // SMTP 端口
+            secure: true,
+            auth: {
+                user: email.mail,
+                pass: email.pass,
+            },
+        })
     }
     async submit (body) {
-        // const { scheduleDate } = body || {}
-        // const time = new Date(scheduleDate)
-        // this.j = schedule.scheduleJob(time, async () => {
-        //     const resInfo = await this.orderSchedule(body) || {}
-        //     if (!resInfo?.success) {
-        //         this.j?.cancel()
-        //         clearInterval(this.id)
-        //     }
-        //     this.id = setInterval(() => {
-        //         this.orderSchedule(body)
-        //     }, 2000);
-        //     return resInfo
-        // })
-        this.orderSchedule(body)
+        const { scheduleDate } = body || {}
+        console.log('---scheduleDate', body, scheduleDate);
+        if (!_.isEmpty(scheduleDate)) {
+            console.log('---scheduleDate--2--', scheduleDate);
+            const time = new Date(scheduleDate)
+            this.j = schedule.scheduleJob(time, async () => {
+                const resInfo = await this.orderSchedule(body) || {}
+                if (!resInfo?.success) {
+                    this.j?.cancel()
+                    clearInterval(this.id)
+                }
+                // this.id = setInterval(() => {
+                //     this.orderSchedule(body)
+                // }, 2000);
+                return resInfo
+            })
+        } else {
+            this.orderSchedule(body)
+        }
     }
 
     async orderSchedule (body) {
@@ -36,13 +52,14 @@ export default class submitOrderService extends baseService {
          * 出发站from_station
          * 目的站to_station
          * cookie
-         * 定时执行时间 date  YYYY-MM-DD HH:MM
+         * 定时执行时间 scheduleDate  YYYY-MM-DD HH:MM
          * 车次号train_no
+         * email
          */
-        let { token, train_date, train_no, passengerInfo, from_station, to_station } = body || {}
+        let { token, train_date, train_no, passengerInfo, from_station, to_station, email } = body || {}
         const res = await axios.get(`https://kyfw.12306.cn/otn/leftTicket/query?leftTicketDTO.train_date=${train_date}&leftTicketDTO.from_station=${from_station}&leftTicketDTO.to_station=${to_station}&purpose_codes=ADULT`, {
             headers: {
-                Cookie: token,
+                Cookie: 'JSESSIONID=DAA492DA158492E86EAAC13CF99E31F2; tk=508PW1lz0I1PTngMyPjARf73rzSBgLHezzFxHwsdL1L0; _jc_save_wfdc_flag=dc; _jc_save_fromStation=%u6DF1%u5733%2CSZQ; _jc_save_toStation=%u7941%u9633%u5317%2CQVQ; RAIL_EXPIRATION=1607224614130; RAIL_DEVICEID=ejaFamwVlvOqT88DNSBzCf681V8DlUZosygCagbEhnwHMFyj6TP7LwHzssXuGARcUicToDKJ81vnKUzf_-F1176FIXp5CCUb6iMs6UkCV0uR_Te76GtLP7HzGpi43HoQQR-aH2hVF6lc_oabNDk06p69gV_stQB1; _jc_save_toDate=2020-12-03; BIGipServerotn=2296905994.24610.0000; BIGipServerpassport=887619850.50215.0000; route=6f50b51faa11b987e576cdb301e545c4; uKey=22628a78079cc736507779d290eeb5bd6e12a41134f5c0621bd6b84208689710; current_captcha_type=Z; _jc_save_fromDate=2020-12-05',
                 'User-Agent': ua
             }
         })
@@ -295,9 +312,22 @@ export default class submitOrderService extends baseService {
 
                         if (!status) console.log('--下单失败');
                     })
+                    this.sendEmail(email)
                 }
             }
         }
+    }
+    async sendEmail (email) {
+        let mailOptions = {
+            from: this.mail,
+            to: email, // 默认收件箱是发件箱 有需要可以自行更改
+            subject: '抢票成功，请您在30分钟内完成支付'
+        }
+        this.mailer.sendMail(mailOptions, (err, info) => {
+            if (err) {
+                return console.log('发送失败：', err)
+            }
+        })
     }
     getStationName (from, to) {
         const { stationInfo } = station || {}

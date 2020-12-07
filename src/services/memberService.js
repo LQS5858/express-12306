@@ -10,6 +10,7 @@ export default class checkUser extends baseServices {
 
     async checkUser (body) {
         const { token } = body || {}
+        console.log('--token--', token);
         const obj = await axios.post('https://kyfw.12306.cn/otn/login/checkUser', { _json_att: null }, {
             headers: {
                 Cookie: token,

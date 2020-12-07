@@ -11,8 +11,8 @@ export default class ticketApi {
 
     @route('/ticket')
     @GET()
-    @before([bodyParser.json()])
     async queryTicket (req, res) {
+        console.log('--query--', req.query);
         const { success, data, message } = await this.queryService.findPage(req.query) || {}
         if (success) {
             return res.success(data)

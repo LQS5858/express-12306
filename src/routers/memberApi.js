@@ -11,6 +11,11 @@ export default class memberApi {
     @POST()
     @before([bodyParser.json()])
     async checkUser (req, res) {
+        /**
+         * params{
+         * token //登录cookie
+         * }
+         */
         const { success, data, message } = await this.memberService.checkUser(req.body)
         if (success) {
             return res.success(data)
