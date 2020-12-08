@@ -8,19 +8,20 @@ import station from "../config/station";
 const nodemailer = require('nodemailer')
 import { email } from '../config'
 
-
+const configEmail = email
 export default class submitOrderService extends baseService {
     constructor() {
         super()
         this.j = null
         this.id = null
+
         this.mailer = nodemailer.createTransport({
             host: 'smtp.163.com', // 邮箱的服务器地址 如果需要换其他类型的邮箱 需要更改对应的服务器地址
             posrt: 465, // SMTP 端口
             secure: true,
             auth: {
-                user: email.mail,
-                pass: email.pass,
+                user: configEmail.mail,
+                pass: configEmail.pass,
             },
         })
     }
@@ -305,15 +306,36 @@ export default class submitOrderService extends baseService {
                 const { status: confirmSingleStatus, data } = confirmSingleRes?.data || {}
                 if (!confirmSingleStatus) return this.fail('单程票确认失败,请重试!', '单程票确认失败,请重试!')
                 if (confirmSingleStatus) {
-                    axios.get(`https://kyfw.12306.cn/otn/confirmPassenger/queryOrderWaitTime?random=${Date.now()}&tourFlag:'dc'&_json_att=null&REPEAT_SUBMIT_TOKEN=${REPEAT_SUBMIT_TOKEN?.REPEAT_SUBMIT_TOKEN}`, {
+                    const res = await axios.get(`https://kyfw.12306.cn/otn/confirmPassenger/queryOrderWaitTime?random=${Date.now()}&tourFlag:'dc'&_json_att=null&REPEAT_SUBMIT_TOKEN=${REPEAT_SUBMIT_TOKEN?.REPEAT_SUBMIT_TOKEN}`, {
                         headers: {
                             Cookie: token,
                             'User-Agent': ua
                         }
                     }).then(res => {
-                        const { status } = res?.data || {}
-                        if (!status) console.log('--下单失败');
+                        axios.post('https://kyfw.12306.cn/otn/queryOrder/queryMyOrderNoComplete', {}, {
+                            headers: {
+                                Cookie: token,
+                                'User-Agent': ua
+                            }
+                        }).then(complete => {
+                            console.log('--完成--', complete?.data);
+                            const { orderCacheDTO } = complete?.data || {}
+                            const { message } = orderCacheDTO || {}
+
+                        })
                     })
+                    const complete = await axios.post('https://kyfw.12306.cn/otn/queryOrder/queryMyOrderNoComplete', {}, {
+                        headers: {
+                            Cookie: token,
+                            'User-Agent': ua
+                        }
+                    })
+                    console.log('--完成--', complete?.data);
+                    const { orderCacheDTO } = complete?.data || {}
+                    const { message } = orderCacheDTO || {}
+                    if (message?.message) {
+                        return this.fail(message?.message, message?.message)
+                    }
                     this.sendEmail(email)
                     return this.success('成功', data)
                 }
@@ -321,9 +343,9 @@ export default class submitOrderService extends baseService {
         }
     }
     async sendEmail (email) {
-        console.log('--接受的email--', email, email.mail);
+        if (!email) return
         let mailOptions = {
-            from: email.mail,
+            from: configEmail.mail,
             to: email, // 默认收件箱是发件箱 有需要可以自行更改
             subject: '抢票成功，请您在30分钟内完成支付'
         }
