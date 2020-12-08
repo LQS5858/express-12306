@@ -36,13 +36,12 @@ export default class submitOrderService extends baseService {
                     this.j?.cancel()
                     clearInterval(this.id)
                 }
-                // this.id = setInterval(() => {
-                //     this.orderSchedule(body)
-                // }, 2000);
+                console.log('---submit--info--', resInfo);
                 return resInfo
             })
         } else {
             const resInfo = await this.orderSchedule(body)
+            console.log('---submit--info--', resInfo);
             return resInfo
         }
     }
@@ -306,7 +305,6 @@ export default class submitOrderService extends baseService {
                 const { status: confirmSingleStatus, data } = confirmSingleRes?.data || {}
                 if (!confirmSingleStatus) return this.fail('单程票确认失败,请重试!', '单程票确认失败,请重试!')
                 if (confirmSingleStatus) {
-                    this.success('成功', data)
                     axios.get(`https://kyfw.12306.cn/otn/confirmPassenger/queryOrderWaitTime?random=${Date.now()}&tourFlag:'dc'&_json_att=null&REPEAT_SUBMIT_TOKEN=${REPEAT_SUBMIT_TOKEN?.REPEAT_SUBMIT_TOKEN}`, {
                         headers: {
                             Cookie: token,
@@ -314,15 +312,16 @@ export default class submitOrderService extends baseService {
                         }
                     }).then(res => {
                         const { status } = res?.data || {}
-
                         if (!status) console.log('--下单失败');
                     })
                     this.sendEmail(email)
+                    return this.success('成功', data)
                 }
             }
         }
     }
     async sendEmail (email) {
+        console.log('--接受的email--', email, email.mail);
         let mailOptions = {
             from: email.mail,
             to: email, // 默认收件箱是发件箱 有需要可以自行更改
