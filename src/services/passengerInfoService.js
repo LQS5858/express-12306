@@ -40,12 +40,13 @@ export default class passengerInfoService extends baseServices {
             ]
         })
         const { data, messages } = passener?.data || {}
-        console.log('--passenger--', data, _.isEmpty(data));
+        const { noLogin, normal_passengers, exMsg } = data || {}
+        console.log('--passenger--', data, exMsg);
 
-        if (!_.isEmpty(data)) {
+        if (!_.isEmpty(normal_passengers)) {
             return this.success('成功', data)
         } else {
-            return this.fail('失败', messages)
+            return this.fail(exMsg)
         }
     }
     async formatData (data) {

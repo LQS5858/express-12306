@@ -42,7 +42,8 @@ export default class submitOrderService extends baseService {
                 return resInfo
             })
         } else {
-            this.orderSchedule(body)
+            const resInfo = await this.orderSchedule(body)
+            return resInfo
         }
     }
 
@@ -120,6 +121,7 @@ export default class submitOrderService extends baseService {
         })
         const { status: submitStatus } = submitRes?.data || {}
         console.log('--确认订单返回--', submitRes.data, submitStatus, params);
+        if (!submitStatus) return this.fail('确认预定失败,请重试!', '确认预定失败,请重试!')
         if (submitStatus) {
             const initDcRes = await axios.get('https://kyfw.12306.cn/otn/confirmPassenger/initDc', {
                 headers: {
@@ -223,6 +225,7 @@ export default class submitOrderService extends baseService {
             })
             console.log('--检查订单---', checkOrder?.data);
             const { status: checkOrderStatus } = checkOrder?.data || {}
+            if (!checkOrderStatus) return this.fail('检查订单信息失败,请重试!', '检查订单信息失败,请重试!')
             // 成功
             if (checkOrderStatus) {
                 const params = {
@@ -260,7 +263,7 @@ export default class submitOrderService extends baseService {
                     ]
                 })
                 const { status: queueStatus } = queueRef?.data || {}
-                if (!queueStatus) return
+                if (!queueStatus) return this.fail('加入队列失败,请重试!', '加入队列失败,请重试!')
                 console.log('---订单队列--', queueRef?.data);
                 const queueParams = {
                     passengerTicketStr: `O,0,1,${passenger_name},${passenger_id_type_code},${passenger_id_no},${mobile_no},${is_buy_ticket},${allEncStr}`,
@@ -300,9 +303,11 @@ export default class submitOrderService extends baseService {
                     ]
                 })
                 console.log('--单程票确认--', confirmSingleRes?.data);
-                const { status: confirmSingleStatus } = confirmSingleRes?.data || {}
+                const { status: confirmSingleStatus, data } = confirmSingleRes?.data || {}
+                if (!confirmSingleStatus) return this.fail('单程票确认失败,请重试!', '单程票确认失败,请重试!')
                 if (confirmSingleStatus) {
-                    axios.get(`https://kyfw.12306.cn/otn/confirmPassenger/queryOrderWaitTime?random=${Date.now()}&tourFlag:'dc'&_json_att=null&REPEAT_SUBMIT_TOKEN=${REPEAT_SUBMIT_TOKEN}`, {
+                    this.success('成功', data)
+                    axios.get(`https://kyfw.12306.cn/otn/confirmPassenger/queryOrderWaitTime?random=${Date.now()}&tourFlag:'dc'&_json_att=null&REPEAT_SUBMIT_TOKEN=${REPEAT_SUBMIT_TOKEN?.REPEAT_SUBMIT_TOKEN}`, {
                         headers: {
                             Cookie: token,
                             'User-Agent': ua
@@ -319,7 +324,7 @@ export default class submitOrderService extends baseService {
     }
     async sendEmail (email) {
         let mailOptions = {
-            from: this.mail,
+            from: email.mail,
             to: email, // 默认收件箱是发件箱 有需要可以自行更改
             subject: '抢票成功，请您在30分钟内完成支付'
         }
